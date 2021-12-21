@@ -58,7 +58,7 @@ Created on Thu Sep 19 10:57:23 2019
 # =============================================================================
 # List not inclusive 
 
-# Make sure that looping through files works accuratly
+# Make sure that looping through files works accurately
 # Make sure the plot code works
 
 
@@ -72,7 +72,6 @@ Created on Thu Sep 19 10:57:23 2019
 import os
 import time
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 import internal_helpers.I2MC_funcs as I2MC_funcs
@@ -106,7 +105,7 @@ opt['disttoscreen'] = 65.0  # distance to screen in cm.
 
 # Folders
 # Data folder should be structured by one folder for each participant with
-# the eye-tracking data in textfiles in each folder.
+# the eye-tracking data in text files in each folder.
 dir_path = os.path.dirname(os.path.realpath(__file__))
 folders = dict()
 # folder in which data is stored (each folder in folders.data is considered 1 subject)
@@ -141,8 +140,8 @@ opt['steptime'] = 0.02
 # maximum number of errors allowed in k-means clustering procedure before proceeding to next file
 opt['maxerrors'] = 100.0
 opt['downsamples'] = [2.0, 5.0, 10.0]
-# use chebychev filter when downsampling? 1: yes, 0: no. requires signal processing toolbox. is what matlab's
-# downsampling internal_helpers do, but could cause trouble (ringing) with the hard edges in eye-movement data
+# use chebychev filter when down sampling? 1: yes, 0: no. requires signal processing toolbox. is what matlab's
+# down sampling internal_helpers do, but could cause trouble (ringing) with the hard edges in eye-movement data
 opt['downsampFilter'] = 0
 
 # # FIXATION DETERMINATION
@@ -180,8 +179,11 @@ nfiles = [len(f) for f in allFiles]
 
 # Write the final fixation output file 
 fixFile = folders['output'] + os.sep + 'allfixations.txt'
-fixFileHeader = 'FixStart{sep}FixEnd{sep}FixDur{sep}XPos{sep}YPos{sep}FlankedByDataLoss{sep}Fraction Interpolated{sep}WeightCutoff{sep}RMSxy{sep}BCEA{sep}FixRangeX{sep}FixRangeY{sep}Participant{sep}Trial\n'.format(
-    sep=sep)
+fixFileHeader = 'FixStart{sep}FixEnd{sep}FixDur{sep}XPos{sep}YPos{sep}FlankedByDataLoss{sep}' + \
+                'Fraction Interpolated{sep}WeightCutoff{sep}RMSxy{sep}BCEA{sep}FixRangeX{sep}' + \
+                'FixRangeY{sep}Participant{sep}Trial\n'
+fixFileHeader = fixFileHeader.format(sep=sep)
+
 for it in range(1, 101):
     if os.path.isfile(fixFile) and it < 100:
         fixFile = folders['output'] + os.sep + 'allfixations_{}.txt'.format(it)
@@ -195,11 +197,6 @@ for it in range(1, 101):
 # START ALGORITHM -- FIX THIS LATER
 # =============================================================================
 for foldIdx, folder in enumerate(allFolders):
-    # make output folder
-    if doPlotData:
-        outFold = folders['output'] + os.sep + (folder.split(os.sep)[-1])
-        if not os.path.isdir(outFold):
-            os.mkdir(outFold)
 
     if nfiles[foldIdx] == 0:
         print('folder is empty, continuing to next folder')
@@ -223,27 +220,18 @@ for foldIdx, folder in enumerate(allFolders):
         fix, _, _ = I2MC_funcs.I2MC(data, opt)
 
         if not fix:
-            # PLOT RESULTS
-            if doPlotData:
-                # pre-allocate name for saving file
-                saveFile = outFold + os.sep + os.path.splitext(file)[0] + '.png'
-                f = I2MC_funcs.plotResults(data, fix, [opt['xres'], opt['yres']])
-                # save figure and close
-                print('Saving image to: ' + saveFile)
-                f.savefig(saveFile)
-                plt.close(f)
-
             # Write data to string 
             fixInfo = ''
             for t in range(len(fix['start'])):
                 fixInfo += '{:0.3f}{sep}{:0.3f}{sep}{:0.3f}{sep}{:0.3f}{sep}{:0.3f}{sep}' \
                            '{:0.3f}{sep}{:0.3f}{sep}{:0.3f}{sep}{:0.3f}{sep}{:0.3f}{sep}{:0.3f}{sep}' \
-                           '{:0.3f}{sep}{}{sep}{}\n'.format(
-                    fix['startT'][t], fix['endT'][t], fix['dur'][t], fix['xpos'][t],
-                    fix['ypos'][t], fix['flankdataloss'][t], fix['fracinterped'][t],
-                    fix['cutoff'], fix['RMSxy'][t], fix['BCEA'][t],
-                    fix['fixRangeX'][t], fix['fixRangeY'][t],
-                    folder.split(os.sep)[-1], os.path.splitext(file)[0], sep=sep)
+                           '{:0.3f}{sep}{}{sep}{}\n' \
+                    .format(fix['startT'][t], fix['endT'][t], fix['dur'][t], fix['xpos'][t],
+                            fix['ypos'][t], fix['flankdataloss'][t], fix['fracinterped'][t],
+                            fix['cutoff'], fix['RMSxy'][t], fix['BCEA'][t],
+                            fix['fixRangeX'][t], fix['fixRangeY'][t],
+                            folder.split(os.sep)[-1], os.path.splitext(file)[0],
+                            sep=sep)
 
             # Write string to file
             with open(fixFile, 'a+') as f:
