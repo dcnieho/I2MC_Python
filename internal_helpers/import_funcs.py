@@ -15,7 +15,7 @@ import pandas as pd
 # =============================================================================
 # Import Titta
 # =============================================================================
-def importTitta(fname, nskip=1, res=[1920,1080], missingx=-1920, missingy=-1080):
+def importTitta(fname, nskip=1, res=[1920, 1080], missingx=-1920, missingy=-1080):
     '''
     Imports data from tsv files produced by Titta. 
     
@@ -62,7 +62,7 @@ def importTitta(fname, nskip=1, res=[1920,1080], missingx=-1920, missingy=-1080)
 # =============================================================================
 # Import TobiiTX 300
 # =============================================================================
-def importTobiiTX300(fname, nskip=1, res=[1920,1080], missingx=-1920, missingy=-1080):
+def importTobiiTX300(fname, nskip=1, res=[1920, 1080], missingx=-1920, missingy=-1080):
     '''
     Imports data from Tobii TX300 as returned by Tobii SDK. 
     
@@ -110,42 +110,40 @@ def importTobiiTX300(fname, nskip=1, res=[1920,1080], missingx=-1920, missingy=-
     L_Y: [-1080.    -1080.      536.112   544.212   536.436]
     R_X: [-1920.    -1920.      939.648   931.776   938.688]
     R_Y: [-1080.    -1080.      480.924   492.804   479.196]
-    '''  
+    '''
     # Load all data
     dat = np.loadtxt(fname, skiprows=nskip)
-    
+
     # Extract required data
-    t = dat[:,27]
-    L_X = dat[:,7] * res[0]
-    L_Y = dat[:,8] * res[1]
-    L_V = dat[:,13]
-    R_X = dat[:,20] * res[0]
-    R_Y = dat[:,21] * res[1]
-    R_V = dat[:,26]
-    
+    t = dat[:, 27]
+    L_X = dat[:, 7] * res[0]
+    L_Y = dat[:, 8] * res[1]
+    L_V = dat[:, 13]
+    R_X = dat[:, 20] * res[0]
+    R_Y = dat[:, 21] * res[1]
+    R_V = dat[:, 26]
+
     ###
     # sometimes we have weird peaks where one sample is (very) far outside the
     # monitor. Here, count as missing any data that is more than one monitor
     # distance outside the monitor.
-    
+
     # Left eye
-    lMiss1 = np.logical_or(L_X<-res[0], L_X>2*res[0])
-    lMiss2 = np.logical_or(L_Y<-res[1], L_Y>2*res[1])
+    lMiss1 = np.logical_or(L_X < -res[0], L_X > 2 * res[0])
+    lMiss2 = np.logical_or(L_Y < -res[1], L_Y > 2 * res[1])
     lMiss = np.logical_or(np.logical_or(lMiss1, lMiss2), L_V > 1)
     L_X[lMiss] = missingx
     L_Y[lMiss] = missingy
-    
+
     # Right eye
-    rMiss1 = np.logical_or(R_X<-res[0], R_X>2*res[0])
-    rMiss2 = np.logical_or(R_Y<-res[1], R_Y>2*res[1])
+    rMiss1 = np.logical_or(R_X < -res[0], R_X > 2 * res[0])
+    rMiss2 = np.logical_or(R_Y < -res[1], R_Y > 2 * res[1])
     rMiss = np.logical_or(np.logical_or(rMiss1, rMiss2), R_V > 1)
     R_X[rMiss] = missingx
     R_Y[rMiss] = missingy
-    
-    return t, L_X, L_Y, R_X, R_Y
 
+    return t, L_X, L_Y, R_X, R_Y
 
 # =============================================================================
 # Write your own func
 # =============================================================================
-
