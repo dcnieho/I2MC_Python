@@ -11,10 +11,13 @@ import copy
 # =============================================================================
 # Import libraries
 # =============================================================================
+import warnings
+
 import numpy as np
 import scipy
+import math
 import scipy.signal
-
+from scipy.cluster.vq import vq, _vq
 
 # =============================================================================
 # =============================================================================
@@ -41,6 +44,9 @@ import scipy.signal
 # =============================================================================
 # Helper internal_helpers
 # =============================================================================
+from scipy.spatial.distance import cdist
+
+
 def isNumber(s):
     try:
         np.array(s, dtype=float)
@@ -50,33 +56,35 @@ def isNumber(s):
 
 
 def checkNumeric(k, v):
-    assert isNumber(v), \
-        'The value of "{}" is invalid. Expected input to be one of these types:\n\ndouble, single, uint8, uint16, ' \
-        'uint32, uint64, int8, int16, int32, int64\n\nInstead its type was {}.' \
-            .format(k, type(v))
+    if not isNumber(v):
+        raise ValueError('The value of "{}" is invalid. Expected input to be a number.'.format(k))
 
 
 def checkScalar(k, v):
-    assert np.ndim(v) == 0, \
-        'The value of "{}" is invalid. Expected input to be a scalar.' \
-            .format(k)
+    if not np.ndim(v) == 0:
+        raise ValueError('The value of "{}" is invalid. Expected input to be a scalar.'.format(k))
 
 
 def checkNumel2(k, v):
-    assert np.shape(v) == (2,), \
-        'The value of "{}" is invalid. Expected input to be an array with number of elements equal to 2.' \
-            .format(k)
+    if not np.size(v) == 2:
+        raise ValueError('The value of "{}" is invalid. Expected input to be a 2-element vector.'.format(k))
+
+
+def checkNumel3(k, v):
+    if not np.size(v) == 3:
+        raise ValueError('The value of "{}" is invalid. Expected input to be a 3-element vector.'.format(k))
 
 
 def checkInt(k, v):
-    assert np.sum(np.array(v) % 1) == 0, \
-        'The value of "{}" is invalid. Expected input to be integer-valued.' \
-            .format(k)
+    if not isinstance(v, int):
+        raise ValueError('The value of "{}" is invalid. Expected input to be an integer.'.format(k))
 
 
 def checkFun(k, d, s):
-    assert k in d.keys(), 'I2MCfunc: "{}" must be specified using the "{}" option'.format(s, k)
-    assert isNumber(d[k]), 'I2MCfunc: "{}" must be set as a number using the "{}" option'.format(s, k)
+    if k not in d.keys():
+        raise ValueError('I2MCfunc: "{}" must be specified using the key {}'.format(d, k))
+    if not isNumber(d[k]):
+        raise ValueError('I2MCfunc: "{}" must be a number'.format(k))
 
 
 def angleToPixels(angle, screenDist, screenW, screenXY):
@@ -181,7 +189,7 @@ def bool2bounds(b):
     -------
 
     """
-    b = np.array(np.array(b, dtype=np.bool), dtype=int)
+    b = np.array(np.array(b, dtype=np.bool_), dtype=int)
     b = np.pad(b, (1, 1), 'constant', constant_values=(0, 0))
     D = np.diff(b)
     on = np.array(np.where(D == 1)[0], dtype=int)
@@ -501,171 +509,167 @@ def steffenInterp(x, y, xi):
 # use scipy k means
 # =============================================================================
 def kmeans2(data):
-    pass
+    # n points in p dimensional space
+    n = data.shape[0]
 
+    maxit = 100
 
-#     # n points in p dimensional space
-#     n = data.shape[0]
-#
-#     maxit = 100
-#
-#     ## initialize using kmeans++ method.
-#     # code taken and slightly edited from scipy.cluster.vq
-#     dims = data.shape[1] if len(data.shape) > 1 else 1
-#     C = np.ndarray((2, dims))
-#
-#     # first cluster
-#     C[0, :] = data[np.random.randint(data.shape[0])]
-#
-#     # second cluster
-#     D = cdist(C[:1, :], data, metric='sqeuclidean').min(axis=0)
-#     probs = D / D.sum()
-#     cumprobs = probs.cumsum()
-#     r = np.random.rand()
-#     C[1, :] = data[np.searchsorted(cumprobs, r)]
-#
-#     # Compute the distance from every point to each cluster centroid and the
-#     # initial assignment of points to clusters
-#     D = cdist(C, data, metric='sqeuclidean')
-#     # Compute the nearest neighbor for each obs using the current code book
-#     label = vq(data, C)[0]
-#     # Update the code book by computing centroids
-#     C = _vq.update_cluster_means(data, label, 2)[0]
-#     m = np.bincount(label)
-#
-#     ## Begin phase one:  batch reassignments
-#     # -----------------------------------------------------
-#     # Every point moved, every cluster will need an update
-#     prevtotsumD = math.inf
-#     iter = 0
-#     while True:
-#         iter += 1
-#         # Calculate the new cluster centroids and counts, and update the
-#         # distance from every point to those new cluster centroids
-#         Clast = C;
-#         mlast = m;
-#         D = cdist(C, data, metric='sqeuclidean')
-#
-#         # Deal with clusters that have just lost all their members
-#         if np.any(m == 0):
-#             i = np.argwhere(m == 0)
-#             d = D[[label], [range(n)]]  # use newly updated distances
-#
-#             # Find the point furthest away from its current cluster.
-#             # Take that point out of its cluster and use it to create
-#             # a new singleton cluster to replace the empty one.
-#             lonely = np.argmax(d)
-#             cFrom = label[lonely]  # taking from this cluster
-#             if m[cFrom] < 2:
-#                 # In the very unusual event that the cluster had only
-#                 # one member, pick any other non-singleton point.
-#                 cFrom = np.argwhere(m > 1)[0]
-#                 lonely = np.argwhere(mlabel == cFrom)[0]
-#             end
-#             label[lonely] = i
-#
-#             # Update clusters from which points are taken
-#             C = _vq.update_cluster_means(data, label, 2)[0]
-#             m = np.bincount(label)
-#             D = cdist(C, data, metric='sqeuclidean')
-#
-#         # Compute the total sum of distances for the current configuration.
-#         totsumD = np.sum(D[[label], [range(n)]])
-#         # Test for a cycle: if objective is not decreased, back out
-#         # the last step and move on to the single update phase
-#         if prevtotsumD <= totsumD:
-#             label = prevlabel
-#             C = Clast
-#             m = mlast
-#             iter -= 1
-#             break
-#         if iter >= maxit:
-#             break
-#
-#         # Determine closest cluster for each point and reassign points to clusters
-#         prevlabel = label;
-#         prevtotsumD = totsumD
-#         newlabel = vq(data, C)[0]
-#
-#         # Determine which points moved
-#         moved = newlabel != prevlabel
-#         if np.any(moved):
-#             # Resolve ties in favor of not moving
-#             moved[np.bitwise_and(moved, D[0, :] == D[1, :])] = False
-#         if not np.any(moved):
-#             break
-#         label = newlabel
-#         # update centers
-#         C = _vq.update_cluster_means(data, label, 2)[0]
-#         m = np.bincount(label)
-#
-#     # ------------------------------------------------------------------
-#     # Begin phase two:  single reassignments
-#     # ------------------------------------------------------------------
-#     lastmoved = -1
-#     converged = False
-#     while iter < maxit:
-#         # Calculate distances to each cluster from each point, and the
-#         # potential change in total sum of errors for adding or removing
-#         # each point from each cluster.  Clusters that have not changed
-#         # membership need not be updated.
-#
-#         # Singleton clusters are a special case for the sum of dists
-#         # calculation. Removing their only point is never best, so the
-#         # reassignment criterion had better guarantee that a singleton
-#         # point will stay in its own cluster. Happily, we get
-#         # Del(i,idx(i)) == 0 automatically for them.
-#         Del = cdist(C, data, metric='sqeuclidean')
-#         mbrs = label == 0
-#         sgn = 1 - 2 * mbrs  # -1 for members, 1 for nonmembers
-#         if m[0] == 1:
-#             sgn[mbrs] = 0  # prevent divide-by-zero for singleton mbrs
-#         Del[0, :] = (m[0] / (m[0] + sgn)) * Del[0, :]
-#         # same for cluster 2
-#         sgn = -sgn  # -1 for members, 1 for nonmembers
-#         if m[1] == 1:
-#             sgn[np.invert(mbrs)] = 0  # prevent divide-by-zero for singleton mbrs
-#         Del[1, :] = (m[1] / (m[1] + sgn)) * Del[1, :]
-#
-#         # Determine best possible move, if any, for each point.  Next we
-#         # will pick one from those that actually did move.
-#         prevlabel = label
-#         newlabel = (Del[1, :] < Del[0, :]).astype('int')
-#         moved = np.argwhere(prevlabel != newlabel)
-#         if moved.size > 0:
-#             # Resolve ties in favor of not moving
-#             moved = np.delete(moved, (Del[0, moved] == Del[1, moved]).flatten(), None)
-#         if moved.size == 0:
-#             converged = True
-#             break
-#
-#         # Pick the next move in cyclic order
-#         moved = (np.min((moved - lastmoved % n) + lastmoved) % n)
-#
-#         # If we've gone once through all the points, that's an iteration
-#         if moved <= lastmoved:
-#             iter = iter + 1
-#             if iter >= maxit:
-#                 break
-#         lastmoved = moved
-#
-#         olbl = label[moved]
-#         nlbl = newlabel[moved]
-#         totsumD = totsumD + Del[nlbl, moved] - Del[olbl, moved]
-#
-#         # Update the cluster index vector, and the old and new cluster
-#         # counts and centroids
-#         label[moved] = nlbl
-#         m[nlbl] += 1
-#         m[olbl] -= 1
-#         C[nlbl, :] = C[nlbl, :] + (data[moved, :] - C[nlbl, :]) / m[nlbl];
-#         C[olbl, :] = C[olbl, :] - (data[moved, :] - C[olbl, :]) / m[olbl];
-#
-#     # ------------------------------------------------------------------
-#     if not converged:
-#         warnings.warn("kmeans failed to converge after {} iterations".format(maxit))
-#
-#     return label, C
+    # initialize using kmeans++ method.
+    # code taken and slightly edited from scipy.cluster.vq
+    dims = data.shape[1] if len(data.shape) > 1 else 1
+    C = np.ndarray((2, dims))
+
+    # first cluster
+    C[0, :] = data[np.random.randint(data.shape[0])]
+
+    # second cluster
+    D = cdist(C[:1, :], data, metric='sqeuclidean').min(axis=0)
+    probs = D / D.sum()
+    cumprobs = probs.cumsum()
+    r = np.random.rand()
+    C[1, :] = data[np.searchsorted(cumprobs, r)]
+
+    # Compute the distance from every point to each cluster centroid and the
+    # initial assignment of points to clusters
+    D = cdist(C, data, metric='sqeuclidean')
+    # Compute the nearest neighbor for each obs using the current code book
+    label = vq(data, C)[0]
+    # Update the code book by computing centroids
+    C = _vq.update_cluster_means(data, label, 2)[0]
+    m = np.bincount(label)
+
+    # Begin phase one:  batch reassignments
+    # -----------------------------------------------------
+    # Every point moved, every cluster will need an update
+    prevtotsumD = math.inf
+    iter = 0
+    while True:
+        iter += 1
+        # Calculate the new cluster centroids and counts, and update the
+        # distance from every point to those new cluster centroids
+        Clast = C
+        mlast = m
+        D = cdist(C, data, metric='sqeuclidean')
+
+        # Deal with clusters that have just lost all their members
+        if np.any(m == 0):
+            i = np.argwhere(m == 0)
+            d = D[[label], [range(n)]]  # use newly updated distances
+
+            # Find the point furthest away from its current cluster.
+            # Take that point out of its cluster and use it to create
+            # a new singleton cluster to replace the empty one.
+            lonely = np.argmax(d)
+            cFrom = label[lonely]  # taking from this cluster
+            if m[cFrom] < 2:
+                # In the very unusual event that the cluster had only
+                # one member, pick any other non-singleton point.
+                cFrom = np.argwhere(m > 1)[0]
+                lonely = np.argwhere(m == cFrom)[0]
+            label[lonely] = i
+
+            # Update clusters from which points are taken
+            C = _vq.update_cluster_means(data, label, 2)[0]
+            m = np.bincount(label)
+            D = cdist(C, data, metric='sqeuclidean')
+
+        # Compute the total sum of distances for the current configuration.
+        totsumD = np.sum(D[[label], [range(n)]])
+        # Test for a cycle: if objective is not decreased, back out
+        # the last step and move on to the single update phase
+        if prevtotsumD <= totsumD:
+            label = prevlabel
+            C = Clast
+            m = mlast
+            iter -= 1
+            break
+        if iter >= maxit:
+            break
+
+        # Determine closest cluster for each point and reassign points to clusters
+        prevlabel = label
+        prevtotsumD = totsumD
+        newlabel = vq(data, C)[0]
+
+        # Determine which points moved
+        moved = newlabel != prevlabel
+        if np.any(moved):
+            # Resolve ties in favor of not moving
+            moved[np.bitwise_and(moved, D[0, :] == D[1, :])] = False
+        if not np.any(moved):
+            break
+        label = newlabel
+        # update centers
+        C = _vq.update_cluster_means(data, label, 2)[0]
+        m = np.bincount(label)
+
+    # ------------------------------------------------------------------
+    # Begin phase two:  single reassignments
+    # ------------------------------------------------------------------
+    lastmoved = -1
+    converged = False
+    while iter < maxit:
+        # Calculate distances to each cluster from each point, and the
+        # potential change in total sum of errors for adding or removing
+        # each point from each cluster.  Clusters that have not changed
+        # membership need not be updated.
+
+        # Singleton clusters are a special case for the sum of dists
+        # calculation. Removing their only point is never best, so the
+        # reassignment criterion had better guarantee that a singleton
+        # point will stay in its own cluster. Happily, we get
+        # Del(i,idx(i)) == 0 automatically for them.
+        Del = cdist(C, data, metric='sqeuclidean')
+        mbrs = label == 0
+        sgn = 1 - 2 * mbrs  # -1 for members, 1 for nonmembers
+        if m[0] == 1:
+            sgn[mbrs] = 0  # prevent divide-by-zero for singleton mbrs
+        Del[0, :] = (m[0] / (m[0] + sgn)) * Del[0, :]
+        # same for cluster 2
+        sgn = -sgn  # -1 for members, 1 for nonmembers
+        if m[1] == 1:
+            sgn[np.invert(mbrs)] = 0  # prevent divide-by-zero for singleton mbrs
+        Del[1, :] = (m[1] / (m[1] + sgn)) * Del[1, :]
+
+        # Determine best possible move, if any, for each point.  Next we
+        # will pick one from those that actually did move.
+        prevlabel = label
+        newlabel = (Del[1, :] < Del[0, :]).astype('int')
+        moved = np.argwhere(prevlabel != newlabel)
+        if moved.size > 0:
+            # Resolve ties in favor of not moving
+            moved = np.delete(moved, (Del[0, moved] == Del[1, moved]).flatten(), None)
+        if moved.size == 0:
+            converged = True
+            break
+
+        # Pick the next move in cyclic order
+        moved = (np.min((moved - lastmoved % n) + lastmoved) % n)
+
+        # If we've gone once through all the points, that's an iteration
+        if moved <= lastmoved:
+            iter = iter + 1
+            if iter >= maxit:
+                break
+        lastmoved = moved
+
+        olbl = label[moved]
+        nlbl = newlabel[moved]
+        totsumD = totsumD + Del[nlbl, moved] - Del[olbl, moved]
+
+        # Update the cluster index vector, and the old and new cluster
+        # counts and centroids
+        label[moved] = nlbl
+        m[nlbl] += 1
+        m[olbl] -= 1
+        C[nlbl, :] = C[nlbl, :] + (data[moved, :] - C[nlbl, :]) / m[nlbl];
+        C[olbl, :] = C[olbl, :] - (data[moved, :] - C[olbl, :]) / m[olbl];
+
+    # ------------------------------------------------------------------
+    if not converged:
+        raise RuntimeError('Failed to converge after %d iterations.' % iter)
+
+    return label, C
 
 
 def twoClusterWeighting(xpos, ypos, missing, downsamples, downsampFilter, chebyOrder, windowtime, steptime, freq,
@@ -698,7 +702,7 @@ def twoClusterWeighting(xpos, ypos, missing, downsamples, downsampFilter, chebyO
     nd = len(downsamples)
 
     # Downsample 
-    if downsampFilter:
+    if downsampFilter is not None:
         # filter signal. Follow the lead of decimate(), which first runs a
         # Chebychev filter as specified below
         # passband ripple in dB
@@ -706,11 +710,9 @@ def twoClusterWeighting(xpos, ypos, missing, downsamples, downsampFilter, chebyO
         b = [[] for i in range(nd)]
         a = [[] for i in range(nd)]
         for p in range(nd):
-            # TODO: Chebyscheff interpolation
-            pass
-            # b[p], a[p] = scipy.signal.cheby1(chebyOrder, rp, .8 / downsamples[p])
+            b[p], a[p] = scipy.signal.cheby1(chebyOrder, rp, .8 / downsamples[p])
 
-            # idx for downsamples
+    # idx for downsamples
     idxs = []
     for i in range(nd):
         idxs.append(np.arange(nrsamples, 0, -downsamples[i], dtype=int)[::-1] - 1)
@@ -827,8 +829,9 @@ def twoClusterWeighting(xpos, ypos, missing, downsamples, downsampFilter, chebyO
             i = i - d
 
     # create final weights
+    np.seterr(invalid='ignore')
     finalweights = totalweights / nrtests
-
+    np.seterr(invalid='warn')
     return finalweights, stopped
 
 
@@ -1120,23 +1123,26 @@ def getFixStats(xpos, ypos, missing, pixperdeg=None, fix={}):
 # # The actual I2MC pipeline function
 # =============================================================================
 # =============================================================================
-def I2MC(gazeData, options=None):
+def I2MC(gazeData, options=None, logging=True):
     """
     RUNS I2MC
 
 
     Parameters
     ----------
-
+    @param gazeData: a dataframe containing the gaze data
+    @param options: a dictionary containing the options for the I2MC analysis
+    @param logging: boolean indicating whether to log the results
 
     Returns
     -------
+    @return: a dataframe containing the I2MC analysis results (fixations)
 
     """
     # set defaults
     if options is None:
         options = {}
-    data = copy.deepcopy(gazeData)
+    data = gazeData.copy()
     opt = options.copy()
     par = {}
 
@@ -1174,7 +1180,8 @@ def I2MC(gazeData, options=None):
     par['windowtime'] = opt.pop('windowtime', .2)
     # time window shift (s) for each iteration. Use zero for sample by sample processing
     par['steptime'] = opt.pop('steptime', .02)
-    par['downsamples'] = opt.pop('downsamples', [2, 5, 10])  # downsample levels (can be empty)
+    # downsample levels (can be empty)
+    par['downsamples'] = opt.pop('downsamples', [2, 5, 10])
     # use chebyshev filter when down sampling?
     # True: yes,
     # False: no.
@@ -1185,10 +1192,10 @@ def I2MC(gazeData, options=None):
 
     # order of cheby1 Chebyshev downsampling filter, default is normally ok, as long as there are 25 or more samples
     # in the window (you may have less if your data is of low sampling rate or your window is small
-    par['chebyOrder'] = opt.pop('chebyOrder', 8.)
+    par['chebyOrder'] = opt.pop('chebyOrder', 8)
 
     # maximum number of errors allowed in k-means clustering procedure before proceeding to next file
-    par['maxerrors'] = opt.pop('maxerrors', 100.)
+    par['maxerrors'] = opt.pop('maxerrors', 100)
     # FIXATION DETERMINATION
     # number of standard deviations above mean k-means weights will be used as fixation cutoff
     par['cutoffstd'] = opt.pop('cutoffstd', 2.)
@@ -1208,7 +1215,7 @@ def I2MC(gazeData, options=None):
     par['skip_inputhandeling'] = opt.pop('skip_inputhandeling', False)
 
     for key in opt:
-        assert False, 'Key "{}" not recognized'.format(key)
+        raise Exception('Key "{}" not recognized'.format(key))
 
     # =============================================================================
     # # Input handeling and checking
@@ -1232,27 +1239,23 @@ def I2MC(gazeData, options=None):
                     checkNumeric(key, value)
                     checkNumel2(key, value)
             elif key == 'downsamples':
-                checkInt(key, value)
+                checkNumel3(key, value)
             else:
                 if type(key) != str:
-                    assert False, 'Key "{}" not recognized'.format(key)
+                    raise Exception('Key "{}" not recognized'.format(key))
 
     # set defaults
     if par['maxdisp'] is None:
         par['maxdisp'] = par['xres'] * 0.2 * np.sqrt(2)
 
     # check filter
-    if par['downsampFilter']:
-        # nSampRequired = max(1,3*(nfilt-1))+1, where nfilt = chebyOrder+1
+    if 'downsampFilter' in par.keys():
         nSampRequired = np.max([1, 3 * par['chebyOrder']]) + 1
         nSampInWin = round(par['windowtime'] / (1. / par['freq']))
-        assert nSampInWin >= nSampRequired, \
-            'I2MCfunc: Filter parameters requested with the setting ''chebyOrder''will not work for the sampling ' \
-            'frequency of your data. Please lower ''chebyOrder'', or set the setting ''downsampFilter'' to 0 '
-
-    assert np.sum(par['freq'] % np.array(par['downsamples'])) == 0, \
-        'I2MCfunc: Some of your downsample levels are not divisors of your sampling frequency. Change the option ' \
-        '"downsamples" '
+        if nSampInWin < nSampRequired:
+            raise Exception('I2MCfunc: Filter parameters requested with the setting "chebyOrder"' +
+                            'will not work for the sampling frequency of your data. Please lower "chebyOrder",' +
+                            'or set the setting "downsampFilter" to 0 ')
 
     # setup visual angle conversion
     pixperdeg = None
@@ -1264,8 +1267,8 @@ def I2MC(gazeData, options=None):
     # =============================================================================
     # deal with monocular data, or create average over two eyes
     if 'L_X' in data.keys() and 'R_X' not in data.keys():
-        xpos = data['L_X']
-        ypos = data['L_Y']
+        xpos = data['L_X'].array
+        ypos = data['L_Y'].array
         # Check for missing values
         missingX = np.logical_or(np.isnan(xpos), xpos == par['missingx'])
         missingY = np.logical_or(np.isnan(ypos), ypos == par['missingy'])
@@ -1311,36 +1314,44 @@ def I2MC(gazeData, options=None):
         data['right_missing'] = rrmiss
         q2Eyes = True
 
+    xpos = xpos.array
+    ypos = ypos.array
+    missing = missing.array
     # =============================================================================
     # INTERPOLATION
     # =============================================================================
     # get interpolation windows for average and individual eye signals
-    print('\tSearching for valid interpolation windows')
+    if logging:
+        print('\tSearching for valid interpolation windows')
     missStart, missEnd = findInterpWins(xpos, ypos, missing, par['windowtimeInterp'], par['edgeSampInterp'],
                                         par['freq'], par['maxdisp'])
     if q2Eyes:
-        llmissStart, llmissEnd = findInterpWins(data['L_X'], data['L_Y'], llmiss, par['windowtimeInterp'],
+        llmissStart, llmissEnd = findInterpWins(data['L_X'].array, data['L_Y'].array, llmiss, par['windowtimeInterp'],
                                                 par['edgeSampInterp'], par['freq'], par['maxdisp']);
-        rrmissStart, rrmissEnd = findInterpWins(data['R_X'], data['R_Y'], rrmiss, par['windowtimeInterp'],
+        rrmissStart, rrmissEnd = findInterpWins(data['R_X'].array, data['R_Y'].array, rrmiss, par['windowtimeInterp'],
                                                 par['edgeSampInterp'], par['freq'], par['maxdisp']);
 
     # Use Steffen interpolation and replace values
-    print('\tReplace interpolation windows with Steffen interpolation')
+    if logging:
+        print('\tReplace interpolation windows with Steffen interpolation')
     xpos, ypos, missingn = windowedInterpolate(xpos, ypos, missing, missStart, missEnd, par['edgeSampInterp'],
                                                par['dev_interpolation'])
     if q2Eyes:
-        llx, lly, llmissn = windowedInterpolate(data['L_X'], data['L_Y'], data['left_missing'], llmissStart, llmissEnd,
+        llx, lly, llmissn = windowedInterpolate(data['L_X'].array, data['L_Y'].array, data['left_missing'].array,
+                                                llmissStart, llmissEnd,
                                                 par['edgeSampInterp'], par['dev_interpolation'])
-        rrx, rry, rrmissn = windowedInterpolate(data['R_X'], data['R_Y'], data['right_missing'], rrmissStart, rrmissEnd,
+        rrx, rry, rrmissn = windowedInterpolate(data['R_X'].array, data['R_Y'].array, data['right_missing'].array,
+                                                rrmissStart, rrmissEnd,
                                                 par['edgeSampInterp'], par['dev_interpolation'])
 
-        # =============================================================================
+    # =============================================================================
     # 2-MEANS CLUSTERING
     # =============================================================================
     # CALCULATE 2-MEANS CLUSTERING FOR SINGLE EYE
     if not q2Eyes:
         # get kmeans-clustering for averaged signal
-        print('\t2-Means clustering started for averaged signal')
+        if logging:
+            print('\t2-Means clustering started for averaged signal')
         data['finalweights'], stopped = twoClusterWeighting(xpos, ypos, missingn, par['downsamples'],
                                                             par['downsampFilter'], par['chebyOrder'], par['windowtime'],
                                                             par['steptime'], par['freq'], par['maxerrors'],
@@ -1348,42 +1359,59 @@ def I2MC(gazeData, options=None):
 
         # check whether clustering succeeded
         if stopped:
-            print('\tClustering stopped after exceeding max errors, continuing to next file \n')
-            return False
+            if logging:
+                print('\tClustering stopped after exceeding max errors, continuing to next file \n')
+            raise Exception('Clustering stopped after exceeding max errors, continuing to next file')
 
     # CALCULATE 2-MEANS CLUSTERING FOR SEPARATE EYES
     elif q2Eyes:
         # get kmeans-clustering for left eye signal
-        print('\t2-Means clustering started for left eye signal')
+        if logging:
+            print('\t2-Means clustering started for left eye signal')
         finalweights_left, stopped = twoClusterWeighting(llx, lly, llmissn, par['downsamples'], par['downsampFilter'],
                                                          par['chebyOrder'], par['windowtime'], par['steptime'],
                                                          par['freq'], par['maxerrors'], par['dev_cluster'])
 
         # check whether clustering succeeded
         if stopped:
-            print('Clustering stopped after exceeding max errors, continuing to next file \n')
-            return False
+            if logging:
+                print('Clustering stopped after exceeding max errors, continuing to next file \n')
+            raise Exception('Clustering stopped after exceeding max errors, continuing to next file')
 
         # get kmeans-clustering for right eye signal
-        print('\t2-Means clustering started for right eye signal')
+        if logging:
+            print('\t2-Means clustering started for right eye signal')
         finalweights_right, stopped = twoClusterWeighting(rrx, rry, rrmissn, par['downsamples'], par['downsampFilter'],
                                                           par['chebyOrder'], par['windowtime'], par['steptime'],
                                                           par['freq'], par['maxerrors'], par['dev_cluster'])
 
         # check whether clustering succeeded
         if stopped:
-            print('\tClustering stopped after exceeding max errors, continuing to next file')
-            return False
+            if logging:
+                print('\tClustering stopped after exceeding max errors, continuing to next file')
+            raise Exception('Clustering stopped after exceeding max errors, continuing to next file')
 
-        ## AVERAGE FINALWEIGHTS OVER COMBINED & SEPARATE EYES
+        # AVERAGE FINALWEIGHTS OVER COMBINED & SEPARATE EYES
+        # ignore all runtime warnings
+        warnings.filterwarnings("ignore")
         data['finalweights'] = np.nanmean(np.vstack([finalweights_left, finalweights_right]), axis=0)
+        # reset warnings
+        warnings.resetwarnings()
 
     # =============================================================================
     #  DETERMINE FIXATIONS BASED ON FINALWEIGHTS_AVG
     # =============================================================================
-    print('\tDetermining fixations based on clustering weight mean for averaged signal and separate eyes + {:.2f}*std'
-          .format(par['cutoffstd']))
-    fix = getFixations(data['finalweights'], data['time'], xpos, ypos, missing, par)
+    if logging:
+        print(
+            '\tDetermining fixations based on clustering weight mean for averaged signal and separate eyes + {:.2f}*std'
+                .format(par['cutoffstd']))
+
+    # finalweights to float
+    data['finalweights'] = data['finalweights'].astype(float)
+    # time to float
+    data['time'] = data['time'].astype(float)
+
+    fix = getFixations(data['finalweights'].array, data['time'].array, xpos, ypos, missing, par)
     fix = getFixStats(xpos, ypos, missing, pixperdeg, fix)
 
     return fix, data, par

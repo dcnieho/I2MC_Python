@@ -192,6 +192,7 @@ for it in range(1, 101):
         with open(fixFile, 'w+') as f:
             f.write(fixFileHeader)
         break
+assert True == False, 'Could not create file'
 
 # =============================================================================
 # START ALGORITHM -- FIX THIS LATER
