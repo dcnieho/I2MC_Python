@@ -1126,15 +1126,48 @@ def I2MC(gazeData, options=None, logging=True, logging_offset=""):
     Parameters
     ----------
     @param gazeData: a dataframe containing the gaze data
-    @param gazeData: a dataframe containing the gaze data
+        the dataframe should contain the following columns (either L, R or both or average):
+            L_X         - left eye x position
+            L_Y         - left eye y position
+            R_X         - right eye x position
+            R_Y         - right eye y position
+            average_X   - average x position
+            average_Y   - average y position
+            l_missing   - left eye missing data
+            r_missing   - right eye missing data
+            missing     - missing data
+            time        - time of the gaze sample
+
     @param options: a dictionary containing the options for the I2MC analysis
+        the dictionary should contain the following keys:
+            x_res        - x resolution of the screen in pixels
+            y_res        - y resolution of the screen in pixels
+            freq         - frequency of the Eyetracker in Hz
+            missing_x    - value indicating data loss
+            missing_y    - value indicating data loss
+
     @param logging: boolean indicating whether to log the results
     @param logging_offset: offset before every logging message
 
     Returns
     -------
-    @return: a dataframe containing the I2MC analysis results (fixations)
-
+    @return: false if the analysis was not successful, otherwise a dictionary
+        containing the results of the analysis:
+        The Dictionary contains the following keys:
+            cutoff          -
+            start           -
+            end             -
+            startT          -
+            endT            -
+            dur             -
+            xpos            -
+            ypos            -
+            flankdataloss   -
+            fracinterped    -
+            RMSxy           -
+            BCEA            -
+            fixRangeX       -
+            fixRangeY       -
     """
     # set defaults
     if options is None:
@@ -1369,7 +1402,8 @@ def I2MC(gazeData, options=None, logging=True, logging_offset=""):
         # check whether clustering succeeded
         if stopped:
             if logging:
-                print(logging_offset + 'I2MC: Clustering stopped after exceeding max errors, continuing to next file \n')
+                print(
+                    logging_offset + 'I2MC: Clustering stopped after exceeding max errors, continuing to next file \n')
             raise Exception('Clustering stopped after exceeding max errors, continuing to next file')
 
         # get kmeans-clustering for right eye signal
@@ -1407,7 +1441,5 @@ def I2MC(gazeData, options=None, logging=True, logging_offset=""):
 
     fix = getFixations(data['finalweights'].array, data['time'].array, xpos, ypos, missing, par)
     fix = getFixStats(xpos, ypos, missing, pixel_per_deg, fix)
-
-
 
     return fix, data, par
