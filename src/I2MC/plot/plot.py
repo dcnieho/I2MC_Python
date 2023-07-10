@@ -73,9 +73,9 @@ def data_and_fixations(data, fix, fix_as_line=True, unit='pixels', res=None):
     ax2.set_xlabel('Time (ms)')
     ax2.set_ylabel('Vertical position ({})'.format(unit), size = myLabelSize)
     if isinstance(res[1],list):
-        ax1.set_ylim([res[1][0], res[1][1]])
+        ax2.set_ylim([res[1][0], res[1][1]])
     else:
-        ax1.set_ylim([0, res[1]])
+        ax2.set_ylim([0, res[1]])
 
     ### Plot X position
     Xdatp = np.atleast_2d(Xdat)
