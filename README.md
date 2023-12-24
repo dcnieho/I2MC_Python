@@ -1,3 +1,7 @@
+[![Downloads](https://static.pepy.tech/badge/i2mc)](https://pepy.tech/project/i2mc)
+[![PyPI Latest Release](https://img.shields.io/pypi/v/i2mc.svg)](https://pypi.org/project/i2mc/)
+[![image](https://img.shields.io/pypi/pyversions/i2mc.svg)](https://pypi.org/project/i2mc/)
+[![DOI](https://zenodo.org/badge/DOI/10.3758/s13428-016-0822-1.svg)](https://doi.org/10.3758/s13428-016-0822-1)
 # Noise-robust fixation classification (I2MC) - Python implementation
 
 ## About I2MC
