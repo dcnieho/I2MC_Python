@@ -1,4 +1,4 @@
-__version__ = "2.2.4"
+__version__ = "2.2.5"
 
 __title__ = "I2MC"
 __description__ = "Noise-robust fixation classification (I2MC)."
@@ -10,4 +10,4 @@ __author__ = "Diederick Niehorster"
 __email__ = "diederick_c.niehorster@humlab.lu.se"
 
 __license__ = "MIT"
-__copyright__ = "Copyright (c) 2019-2023 Jonathan van Leeuwen, " + __author__
+__copyright__ = "Copyright (c) 2019-2024 Jonathan van Leeuwen, " + __author__
