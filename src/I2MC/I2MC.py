@@ -184,8 +184,8 @@ def average_eyes(L_X, R_X, missing_x, L_Y, R_Y, missing_y):
     xpos[q] = L_X[q]
     ypos[q] = L_Y[q]
 
-    xpos[qBMiss] = np.NAN
-    ypos[qBMiss] = np.NAN
+    xpos[qBMiss] = np.nan
+    ypos[qBMiss] = np.nan
 
     return xpos, ypos, qBMiss, qLMiss, qRMiss
 

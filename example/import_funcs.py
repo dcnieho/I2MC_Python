@@ -100,14 +100,14 @@ def tobii_TX300(fname, res=[1920,1080]):
     lMiss1 = (df['L_X'] < -res[0]) | (df['L_X']>2*res[0])
     lMiss2 = (df['L_Y'] < -res[1]) | (df['L_Y']>2*res[1])
     lMiss  = lMiss1 | lMiss2 | (raw_df['LValidity'] > 1)
-    df.loc[lMiss,'L_X'] = np.NAN
-    df.loc[lMiss,'L_Y'] = np.NAN
+    df.loc[lMiss,'L_X'] = np.nan
+    df.loc[lMiss,'L_Y'] = np.nan
 
     # Right eye
     rMiss1 = (df['R_X'] < -res[0]) | (df['R_X']>2*res[0])
     rMiss2 = (df['R_Y'] < -res[1]) | (df['R_Y']>2*res[1])
     rMiss  = rMiss1 | rMiss2 | (raw_df['RValidity'] > 1)
-    df.loc[rMiss,'R_X'] = np.NAN
-    df.loc[rMiss,'R_Y'] = np.NAN
+    df.loc[rMiss,'R_X'] = np.nan
+    df.loc[rMiss,'R_Y'] = np.nan
 
     return df
