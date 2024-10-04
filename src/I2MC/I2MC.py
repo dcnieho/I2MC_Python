@@ -9,7 +9,6 @@ import pandas as pd
 import numpy as np
 import math
 import scipy
-import scipy.interpolate as interp
 import scipy.signal
 from scipy.cluster.vq import vq, _vq
 from scipy.spatial.distance import cdist
