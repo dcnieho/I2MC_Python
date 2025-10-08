@@ -512,6 +512,13 @@ def steffen_interp(x, y, xi):
 class NotConvergedError(Exception):
     pass
 
+def update_cluster_means(data, label, C):
+    new_C, has_members = _vq.update_cluster_means(data, label, 2)
+    if not has_members.all():
+        # Set the empty clusters to their previous positions
+        new_C[~has_members] = C[~has_members]
+    return new_C, np.bincount(label, minlength=C.shape[0])
+
 def kmeans2(data):
     # n points in p dimensional space
     n = data.shape[0]
@@ -529,9 +536,12 @@ def kmeans2(data):
     # second cluster
     D = cdist(C[:1,:], data, metric='sqeuclidean').min(axis=0)
     probs = D/D.sum()
-    cumprobs = probs.cumsum()
-    r = np.random.rand()
-    C[1, :] = data[np.searchsorted(cumprobs, r)]
+    edges = np.minimum(np.concatenate(([0], np.cumsum(probs))), 1)  # protect against accumulated round-off
+    edges[np.isnan(edges)] = 1. # protect against equidistant points
+    edges[-1] = 1  # ensure upper edge is exactly 1
+    ps = np.random.rand()
+    C[1, :] = data[(edges[:-1] <= ps) & (ps < edges[1:])][0]
+
 
     # Compute the distance from every point to each cluster centroid and the
     # initial assignment of points to clusters
@@ -539,8 +549,7 @@ def kmeans2(data):
     # Compute the nearest neighbor for each obs using the current code book
     label = vq(data, C)[0]
     # Update the code book by computing centroids
-    C = _vq.update_cluster_means(data, label, 2)[0]
-    m = np.bincount(label)
+    C, m = update_cluster_means(data, label, C)
 
     ## Begin phase one:  batch reassignments
     #-----------------------------------------------------
@@ -574,8 +583,7 @@ def kmeans2(data):
             label[lonely] = i
 
             # Update clusters from which points are taken
-            C = _vq.update_cluster_means(data, label, 2)[0]
-            m = np.bincount(label)
+            C, m = update_cluster_means(data, label, C)
             D = cdist(C, data, metric='sqeuclidean')
 
         # Compute the total sum of distances for the current configuration.
@@ -605,8 +613,7 @@ def kmeans2(data):
             break
         label = new_label
         # update centers
-        C = _vq.update_cluster_means(data, label, 2)[0]
-        m = np.bincount(label)
+        C, m = update_cluster_means(data, label, C)
 
 
     #------------------------------------------------------------------
