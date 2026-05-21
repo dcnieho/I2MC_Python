@@ -272,8 +272,9 @@ def find_interp_wins(xpos, ypos, missing, window_time, edge_samples, freq, max_d
             continue
 
         # skip if not enough data at left edge
-        if np.sum(data_end == miss_start[k]-1) > 0:
-            datk = int(np.argwhere(data_end==miss_start[k]-1))
+        left_edge = np.flatnonzero(data_end == miss_start[k]-1)
+        if left_edge.size > 0:
+            datk = left_edge[0]
             if data_end[datk]-data_start[datk]+1 < edge_samples:
                 k = k+1
                 continue
@@ -284,9 +285,9 @@ def find_interp_wins(xpos, ypos, missing, window_time, edge_samples, freq, max_d
         # can just merge without further checks. Its ok if it then grows too
         # long, as we'll just end up excluding that too below, which is what
         # would have happened if we didn't do anything here
-        datk = np.argwhere(data_start==miss_end[k]+1)
-        if len(datk) > 0:
-            datk = int(datk)
+        right_edge = np.flatnonzero(data_start == miss_end[k]+1)
+        if right_edge.size > 0:
+            datk = right_edge[0]
             if data_end[datk]-data_start[datk]+1 < edge_samples:
                 miss_end   = np.delete(miss_end  , k)
                 miss_start = np.delete(miss_start, k+1)
