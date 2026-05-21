@@ -60,6 +60,7 @@ Created on Thu Sep 19 10:57:23 2019
 # =============================================================================
 import os
 import sys
+import traceback
 import pandas as pd
 import numpy as np
 import import_funcs as imp
@@ -193,8 +194,10 @@ for folder_idx, folder in enumerate(all_folders):
             print('    Running fixation classification...')
         try:
             fix,_,_ = I2MC.I2MC(data,opt,log_level==2,logging_offset="      ")
-        except Exception as e:
-            print('    Error in file {}: {}'.format(file_name, e))
+        except Exception as exc:
+            print('    Error in file {}: {}'.format(file_name, exc))
+            trace = ''.join(traceback.format_exception(type(exc), exc, exc.__traceback__)).rstrip()
+            print('\n'.join("      " + line for line in trace.splitlines()))
             continue
 
         if not fix:
