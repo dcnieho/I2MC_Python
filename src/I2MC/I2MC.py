@@ -536,12 +536,16 @@ def kmeans2(data):
 
     # second cluster
     D = cdist(C[:1,:], data, metric='sqeuclidean').min(axis=0)
-    probs = D/D.sum()
-    edges = np.minimum(np.concatenate(([0], np.cumsum(probs))), 1)  # protect against accumulated round-off
-    edges[np.isnan(edges)] = 1. # protect against equidistant points
-    edges[-1] = 1  # ensure upper edge is exactly 1
-    ps = np.random.rand()
-    C[1, :] = data[(edges[:-1] <= ps) & (ps < edges[1:])][0]
+    total_distance = D.sum()
+    if not np.isfinite(total_distance) or total_distance <= 0:
+        C[1, :] = data[np.random.randint(data.shape[0])]
+    else:
+        probs = D/total_distance
+        edges = np.minimum(np.concatenate(([0], np.cumsum(probs))), 1)  # protect against accumulated round-off
+        edges[np.isnan(edges)] = 1. # protect against equidistant points
+        edges[-1] = 1  # ensure upper edge is exactly 1
+        ps = np.random.rand()
+        C[1, :] = data[(edges[:-1] <= ps) & (ps < edges[1:])][0]
 
 
     # Compute the distance from every point to each cluster centroid and the
@@ -568,8 +572,8 @@ def kmeans2(data):
 
         # Deal with clusters that have just lost all their members
         if np.any(m==0):
-            i = np.argwhere(m==0)
-            d = D[[label],[range(n)]]   # use newly updated distances
+            empty_cluster = np.flatnonzero(m == 0)[0]
+            d = D[label, np.arange(n)]   # use newly updated distances
 
             # Find the point furthest away from its current cluster.
             # Take that point out of its cluster and use it to create
@@ -579,16 +583,16 @@ def kmeans2(data):
             if m[cFrom] < 2:
                 # In the very unusual event that the cluster had only
                 # one member, pick any other non-singleton point.
-                cFrom = np.argwhere(m>1)[0]
-                lonely = np.argwhere(label==cFrom)[0]
-            label[lonely] = i
+                cFrom = np.flatnonzero(m > 1)[0]
+                lonely = np.flatnonzero(label == cFrom)[0]
+            label[lonely] = empty_cluster
 
             # Update clusters from which points are taken
             C, m = update_cluster_means(data, label, C)
             D = cdist(C, data, metric='sqeuclidean')
 
         # Compute the total sum of distances for the current configuration.
-        totsumD = np.sum(D[[label],[range(n)]])
+        totsumD = np.sum(D[label, np.arange(n)])
         # Test for a cycle: if objective is not decreased, back out
         # the last step and move on to the single update phase
         if prevtotsumD <= totsumD:
